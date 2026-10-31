@@ -129,113 +129,121 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        applyThemeAndLanguage();
         super.onCreate(savedInstanceState);
-        applyAccentTone();
-        mDeCtx = createDeviceProtectedStorageContext();
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        try {
+            applyThemeAndLanguage();
+            super.onCreate(savedInstanceState);
+            applyAccentTone();
+            mDeCtx = createDeviceProtectedStorageContext();
+            binding = ActivityMainBinding.inflate(getLayoutInflater());
+            setContentView(binding.getRoot());
 
-        // Setup ViewPager2 with fragments: Home / Settings.
-        MainPagerAdapter pagerAdapter = new MainPagerAdapter(this);
-        binding.viewPager.setAdapter(pagerAdapter);
-        binding.viewPager.setUserInputEnabled(true);
+            // Setup ViewPager2 with fragments: Home / Settings.
+            MainPagerAdapter pagerAdapter = new MainPagerAdapter(this);
+            binding.viewPager.setAdapter(pagerAdapter);
+            binding.viewPager.setUserInputEnabled(true);
 
-        failedRun = savedInstanceState != null && savedInstanceState.getBoolean("failed_run", false);
+            failedRun = savedInstanceState != null && savedInstanceState.getBoolean("failed_run", false);
 
-        // The header is the app's name and nothing else. The version number that
-        // used to ride next to it is still recorded, just not in the one line of
-        // chrome the user has to look past to reach the cards: on every start here,
-        // and in the run log as "app version: ..." (ExploitRunner). What takes the
-        // headline instead is the update pill, but only once the check below has
-        // something to say - see showUpdatePill.
-        Log.i(TAG, "version " + BuildConfig.VERSION_NAME);
-        // NOTE: no app bar - the home page carries its own headline, so there is
-        // no toolbar title, update pill or header controls to keep in sync.
+            // The header is the app's name and nothing else. The version number that
+            // used to ride next to it is still recorded, just not in the one line of
+            // chrome the user has to look past to reach the cards: on every start here,
+            // and in the run log as "app version: ..." (ExploitRunner). What takes the
+            // headline instead is the update pill, but only once the check below has
+            // something to say - see showUpdatePill.
+            Log.i(TAG, "version " + BuildConfig.VERSION_NAME);
+            // NOTE: no app bar - the home page carries its own headline, so there is
+            // no toolbar title, update pill or header controls to keep in sync.
 
-        // Startup update check. Gitee and GitHub are queried side by side and
-        // the faster answer wins, so mainland users hit Gitee and everyone else
-        // hits GitHub without an unreliable IP/region lookup. A hit downloads
-        // the APK in-app and hands it to the system installer.
-        updateChecker = new UpdateChecker(this);
-        // Theme, accent and language switches call recreate(), which re-runs
-        // onCreate. Those are not launches, so only the first create of this
-        // activity (savedInstanceState == null) starts the network checks.
-        if (savedInstanceState == null) {
-            updateChecker.checkOnStart();
-            // The announcement is fetched from every mirror on each launch and
-            // has to be acknowledged with its button before it goes away.
-            updateChecker.checkAnnouncement();
-        }
-
-        // SU Manager card: upstream 3.2 deleted the bundled assets/ksud, so the
-        // exploit stages libksud.so out of the chosen manager's
-        // nativeLibraryDir and refuses to run without one. Only apps that
-        // actually ship that library are offered.
-        loadSuManagerPref();
-
-        if (isRooted()) {
-            setRootedState();
-        }
-
-        // A log saved before the current boot is stale: delete it so a reboot
-        // always starts with a clean run screen; RunActivity replays whatever
-        // is left.
-        lastLogFile = new File(mDeCtx.getFilesDir(), "last_run.log");
-        int savedBoot = mDeCtx.getSharedPreferences("dfroot", MODE_PRIVATE)
-                .getInt("log_boot_count", -1);
-        if (lastLogFile.exists() && savedBoot != bootCount()) {
-            lastLogFile.delete();
-            mDeCtx.getSharedPreferences("dfroot", MODE_PRIVATE)
-                    .edit().putBoolean("last_run_success", false).apply();
-        }
-
-        // A failed run since the last boot paints the home status card red.
-        mLastFailed = lastLogFile.exists() && !mDeCtx
-                .getSharedPreferences("dfroot", MODE_PRIVATE)
-                .getBoolean("last_run_success", true);
-
-        ComponentName bootReceiver = new ComponentName(this, BootReceiver.class);
-        mBootReceiverEnabled = getPackageManager().getComponentEnabledSetting(bootReceiver)
-                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
-
-        // Expert mode gates the boot options in settings.
-        expertMode = createDeviceProtectedStorageContext()
-                .getSharedPreferences("dfroot", MODE_PRIVATE)
-                .getBoolean("expert_mode", false);
-
-        selectedNav = savedInstanceState == null ? R.id.nav_home
-                : savedInstanceState.getInt("selected_nav", R.id.nav_home);
-        
-        // Sync BottomNavigation with ViewPager2
-        binding.viewPager.registerOnPageChangeCallback(new androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                selectedNav = navForPage(position);
-                binding.bottomNavigation.setSelectedItemId(selectedNav);
+            // Startup update check. Gitee and GitHub are queried side by side and
+            // the faster answer wins, so mainland users hit Gitee and everyone else
+            // hits GitHub without an unreliable IP/region lookup. A hit downloads
+            // the APK in-app and hands it to the system installer.
+            updateChecker = new UpdateChecker(this);
+            // Theme, accent and language switches call recreate(), which re-runs
+            // onCreate. Those are not launches, so only the first create of this
+            // activity (savedInstanceState == null) starts the network checks.
+            if (savedInstanceState == null) {
+                updateChecker.checkOnStart();
+                // The announcement is fetched from every mirror on each launch and
+                // has to be acknowledged with its button before it goes away.
+                updateChecker.checkAnnouncement();
             }
-        });
-        
-        binding.bottomNavigation.setOnItemSelectedListener(item -> {
-            if (item.getItemId() == R.id.nav_home) {
-                binding.viewPager.setCurrentItem(0, true);
-                selectedNav = R.id.nav_home;
-                return true;
-            } else if (item.getItemId() == R.id.nav_settings) {
-                binding.viewPager.setCurrentItem(1, true);
-                selectedNav = R.id.nav_settings;
-                return true;
-            }
-            return false;
-        });
-        
-        // Set initial page
-        binding.viewPager.setCurrentItem(pageForNav(selectedNav), false);
-        binding.bottomNavigation.setSelectedItemId(selectedNav);
 
-        // Run stays locked until an SU manager is selected (and, after a failed
-        // run, until the device has been rebooted).
-        updateRunButton();
+            // SU Manager card: upstream 3.2 deleted the bundled assets/ksud, so the
+            // exploit stages libksud.so out of the chosen manager's
+            // nativeLibraryDir and refuses to run without one. Only apps that
+            // actually ship that library are offered.
+            loadSuManagerPref();
+
+            if (isRooted()) {
+                setRootedState();
+            }
+
+            // A log saved before the current boot is stale: delete it so a reboot
+            // always starts with a clean run screen; RunActivity replays whatever
+            // is left.
+            lastLogFile = new File(mDeCtx.getFilesDir(), "last_run.log");
+            int savedBoot = mDeCtx.getSharedPreferences("dfroot", MODE_PRIVATE)
+                    .getInt("log_boot_count", -1);
+            if (lastLogFile.exists() && savedBoot != bootCount()) {
+                lastLogFile.delete();
+                mDeCtx.getSharedPreferences("dfroot", MODE_PRIVATE)
+                        .edit().putBoolean("last_run_success", false).apply();
+            }
+
+            // A failed run since the last boot paints the home status card red.
+            mLastFailed = lastLogFile.exists() && !mDeCtx
+                    .getSharedPreferences("dfroot", MODE_PRIVATE)
+                    .getBoolean("last_run_success", true);
+
+            ComponentName bootReceiver = new ComponentName(this, BootReceiver.class);
+            mBootReceiverEnabled = getPackageManager().getComponentEnabledSetting(bootReceiver)
+                    == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+
+            // Expert mode gates the boot options in settings.
+            expertMode = createDeviceProtectedStorageContext()
+                    .getSharedPreferences("dfroot", MODE_PRIVATE)
+                    .getBoolean("expert_mode", false);
+
+            selectedNav = savedInstanceState == null ? R.id.nav_home
+                    : savedInstanceState.getInt("selected_nav", R.id.nav_home);
+        
+            // Sync BottomNavigation with ViewPager2
+            binding.viewPager.registerOnPageChangeCallback(new androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+                @Override
+                public void onPageSelected(int position) {
+                    selectedNav = navForPage(position);
+                    binding.bottomNavigation.setSelectedItemId(selectedNav);
+                }
+            });
+        
+            binding.bottomNavigation.setOnItemSelectedListener(item -> {
+                if (item.getItemId() == R.id.nav_home) {
+                    binding.viewPager.setCurrentItem(0, true);
+                    selectedNav = R.id.nav_home;
+                    return true;
+                } else if (item.getItemId() == R.id.nav_settings) {
+                    binding.viewPager.setCurrentItem(1, true);
+                    selectedNav = R.id.nav_settings;
+                    return true;
+                }
+                return false;
+            });
+        
+            // Set initial page
+            binding.viewPager.setCurrentItem(pageForNav(selectedNav), false);
+            binding.bottomNavigation.setSelectedItemId(selectedNav);
+
+            // Run stays locked until an SU manager is selected (and, after a failed
+            // run, until the device has been rebooted).
+            updateRunButton();
+    
+        } catch (Throwable e) {
+            android.util.Log.w(TAG, "UI crashed on API 31: " + e);
+            startActivity(new Intent(this, RunActivity.class));
+            finish();
+        }
     }
 
     /** Home page bindings. Runs once HomeFragment's view exists. */
