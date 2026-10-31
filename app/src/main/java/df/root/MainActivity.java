@@ -131,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         applyThemeAndLanguage();
         super.onCreate(savedInstanceState);
-        try {
         applyAccentTone();
         mDeCtx = createDeviceProtectedStorageContext();
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -237,21 +236,7 @@ public class MainActivity extends AppCompatActivity {
         // Run stays locked until an SU manager is selected (and, after a failed
         // run, until the device has been rebooted).
         updateRunButton();
-        } catch (Throwable e) {
-            android.util.Log.w("DFX", "ViewPager2 crash on API 31: " + e);
-            android.widget.TextView tv = new android.widget.TextView(this);
-            tv.setText("UI crashed (API 31).\nTap to launch exploit.");
-            tv.setTextSize(20f);
-            tv.setGravity(android.view.Gravity.CENTER);
-            tv.setOnClickListener(v -> {
-                try {
-                    startActivity(new android.content.Intent(this, RunActivity.class));
-                } catch (Exception e2) {
-                    android.util.Log.e("DFX", "launch fail", e2);
-                }
-            });
-            setContentView(tv);
-        }
+    }
 
     /** Home page bindings. Runs once HomeFragment's view exists. */
     private void initHomeControls() {
