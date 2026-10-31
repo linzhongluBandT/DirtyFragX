@@ -60,22 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Validate signing config
-        if: github.event_name != 'pull_request'
-        run: |
-          if [ "${{ secrets.KEYSTORE }}" = "" ]; then
-            echo "::error::Signing secrets not configured. KEYSTORE secret is required for release builds."
-            exit 1
-          fi
-
-      - name: Create keystore
-        if: github.event_name != 'pull_request'
-        run: |
-          # app/build.gradle.kts signs with app/keystore.jks (gitignored; the README
-          # documents how to generate it), so the KEYSTORE secret has to be decoded
-          # into app/, not into the repo root the upstream workflow used.
-          echo ${{ secrets.KEYSTORE }} | base64 --decode > app/keystore.jks
-          ls -l app/keystore.jks
+      # signing disabled: debug APK for testing
 
       - name: Download DF LKMs
         uses: actions/download-artifact@v7
@@ -96,7 +81,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             ./gradlew :app:assembleDebug
           else
-            ./gradlew :app:assembleRelease
+            ./gradlew :app:assembleDebug
           fi
 
       - name: Stage release asset
